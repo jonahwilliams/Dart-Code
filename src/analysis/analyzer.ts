@@ -44,9 +44,8 @@ export class Analyzer extends AnalyzerGen {
 			args = args.concat(this.additionalArgs);
 
 		this.launchArgs = args.slice(1); // Trim the first one as it's just snapshot path.
-		log(`Starting ${analyzerPath} with args: ` + this.launchArgs.join(' '));
 
-		this.createProcess(dartVMPath, args);
+		this.createProcess(undefined, dartVMPath, args);
 
 		this.serverSetSubscriptions({
 			subscriptions: ["STATUS"]
@@ -55,6 +54,11 @@ export class Analyzer extends AnalyzerGen {
 		// Hook error subscriptions so we can try and get diagnostic info if this happens.
 		this.registerForServerError(e => this.requestDiagnosticsUpdate());
 		this.registerForRequestError(e => this.requestDiagnosticsUpdate());
+	}
+
+	protected shouldHandleMessage(message: string): boolean {
+		// This will include things like Observatory output and some analyzer logging code.
+		return !message.startsWith('--- ') && !message.startsWith('+++ ');
 	}
 
 	private requestDiagnosticsUpdate() {
