@@ -8,6 +8,7 @@ import { log } from "../utils";
 export abstract class StdIOService implements vs.Disposable {
 	protected serviceName: string;
 	protected process: child_process.ChildProcess;
+	protected messagesWrappedInBrackets = false;
 	private nextRequestID = 1;
 	private activeRequests: { [key: string]: [(result: any) => void, (error: any) => void, string] } = {};
 	private messageBuffer: string[] = [];
@@ -15,9 +16,10 @@ export abstract class StdIOService implements vs.Disposable {
 	private logStream: fs.WriteStream;
 	private requestErrorSubscriptions: ((notification: any) => void)[] = [];
 
-	constructor(serviceName: string, logFile: string) {
+	constructor(serviceName: string, logFile: string, wrappedMessages: boolean = false) {
 		this.serviceName = serviceName;
 		this.logFile = logFile;
+		this.messagesWrappedInBrackets = wrappedMessages;
 	}
 
 	protected createProcess(workingDirectory: string, binPath: string, args: string[]) {
@@ -49,7 +51,9 @@ export abstract class StdIOService implements vs.Disposable {
 				method: method,
 				params: params
 			};
-			let json = JSON.stringify(req) + "\r\n";
+			let json = this.messagesWrappedInBrackets
+				? "[" + JSON.stringify(req) + "]\r\n"
+				: JSON.stringify(req) + "\r\n";
 			this.sendMessage(json);
 		});
 	}
@@ -97,6 +101,9 @@ export abstract class StdIOService implements vs.Disposable {
 		let msg: any;
 		try {
 			msg = JSON.parse(message);
+
+			if (this.messagesWrappedInBrackets)
+				msg = msg[0];
 		}
 		catch (e) {
 			console.error(`Unable to parse message (${e}): ${message}`);

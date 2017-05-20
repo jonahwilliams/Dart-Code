@@ -6,10 +6,11 @@ import * as fs from "fs";
 import { config } from "../config";
 import { log, logError, extensionVersion } from "../utils";
 import { StdIOService, Request, UnknownResponse, UnknownNotification } from "../services/stdio_service";
+import * as f from "./flutter_types";
 
 export class Flutter extends StdIOService {
 	constructor(flutterBinPath: string, projectFolder: string) {
-		super("Flutter daemon", config.flutterDaemonLogFile);
+		super("Flutter daemon", config.flutterDaemonLogFile, true);
 
 		this.createProcess(projectFolder, flutterBinPath, ["daemon"]);
 	}
@@ -19,11 +20,39 @@ export class Flutter extends StdIOService {
 		return message.startsWith('[') && message.endsWith(']');
 	}
 
+	// TODO: Can we code-gen all this like the analysis server?
+
 	protected handleNotification(evt: UnknownNotification) {
 		switch (evt.event) {
-			// case "server.connected":
-			// 	this.notify(this.serverConnectedSubscriptions, <as.ServerConnectedNotification>evt.params);
-			// 	break;
+			case "device.added":
+				this.notify(this.deviceAddedSubscriptions, <f.Device>evt.params);
+				break;
+			case "device.removed":
+				this.notify(this.deviceRemovedSubscriptions, <f.Device>evt.params);
+				break;
 		}
+	}
+
+	// Subscription lists.	
+
+	private deviceAddedSubscriptions: ((notification: f.Device) => void)[] = [];
+	private deviceRemovedSubscriptions: ((notification: f.Device) => void)[] = [];
+
+
+	// Request methods.
+
+	deviceEnable(): Thenable<UnknownResponse> {
+		return this.sendRequest("device.enable");
+	}
+
+
+	// Subscription methods.
+
+	registerForDeviceAdded(subscriber: (notification: f.Device) => void): vs.Disposable {
+		return this.subscribe(this.deviceAddedSubscriptions, subscriber);
+	}
+
+	registerForDeviceRemoved(subscriber: (notification: f.Device) => void): vs.Disposable {
+		return this.subscribe(this.deviceRemovedSubscriptions, subscriber);
 	}
 }
